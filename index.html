@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stream Call - Power By Iglgroup Streaming - Iglgroup (Fixed OBS)</title>
+    <title>Stream Call - Power By Iglgroup Streaming - Iglgroup (Fixed LiveU)</title>
     
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
@@ -15,7 +15,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { background-color: #050505; color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
-        body.obs-mode { background-color: transparent !important; }
+        body.liveu-mode { background-color: transparent !important; }
 
         .lobby-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #0f172a; padding: 20px; text-align: center; }
         .glass-box { background: rgba(30, 41, 59, 0.8); padding: 40px; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-width: 400px; width: 100%; }
@@ -30,9 +30,9 @@
         .btn-gray { background: #334155; color: white; margin-bottom: 10px; border: 1px solid #475569; }
         .btn-yellow { background: #eab308; color: black; margin-bottom: 10px; }
 
-        .obs-layout { width: 100vw; height: 100vh; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; }
-        .obs-video { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; }
-        .obs-status { position: relative; z-index: 9999; background: rgba(0,0,0,0.85); color: #facc15; padding: 20px 30px; border-radius: 12px; font-family: monospace; font-size: 16px; border: 2px solid #facc15; text-align: center; }
+        .liveu-layout { width: 100vw; height: 100vh; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; }
+        .liveu-video { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; }
+        .liveu-status { position: relative; z-index: 9999; background: rgba(0,0,0,0.85); color: #facc15; padding: 20px 30px; border-radius: 12px; font-family: monospace; font-size: 16px; border: 2px solid #facc15; text-align: center; }
 
         .director-layout { display: flex; height: 100vh; position: relative; }
         .video-stage { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -91,8 +91,8 @@
         };
         const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
 
-        // --- RECEPTOR (DIRECTOR / OBS) ---
-        const ReceiverView = ({ roomName, isObsMode }) => {
+        // --- RECEPTOR (DIRECTOR / LiveU) ---
+        const ReceiverView = ({ roomName, isLiveuMode }) => {
             const [status, setStatus] = useState('Esperando invitado...');
             const [guestConnected, setGuestConnected] = useState(false);
             const [tally, setTally] = useState('idle');
@@ -111,7 +111,7 @@
             // Función para conectar/reconectar
             const connectPeer = () => {
                 const baseId = roomName.toUpperCase();
-                const myId = isObsMode ? `sc_obs_${baseId}` : `sc_dir_${baseId}`;
+                const myId = isLiveuMode ? `sc_liveu_${baseId}` : `sc_dir_${baseId}`;
                 
                 if (peer.current) {
                     peer.current.destroy();
@@ -120,19 +120,19 @@
                 peer.current = new Peer(myId, PEER_CONFIG);
                 
                 peer.current.on('open', (id) => {
-                    console.log(`[${isObsMode ? 'OBS' : 'Director'}] Conectado con ID: ${id}`);
+                    console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Conectado con ID: ${id}`);
                     setStatus(`Conectado, esperando invitado...`);
                 });
                 
                 peer.current.on('call', (call) => {
-                    console.log(`[${isObsMode ? 'OBS' : 'Director'}] Recibiendo llamada de:`, call.peer);
+                    console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Recibiendo llamada de:`, call.peer);
                     setStatus(`Recibiendo señal...`);
                     
                     // Aceptar la llamada
                     call.answer();
                     
                     call.on('stream', (stream) => {
-                        console.log(`[${isObsMode ? 'OBS' : 'Director'}] Stream recibido!`);
+                        console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Stream recibido!`);
                         if (remoteVideoRef.current) {
                             remoteVideoRef.current.srcObject = stream;
                             setGuestConnected(true);
@@ -141,7 +141,7 @@
                     });
                     
                     call.on('close', () => {
-                        console.log(`[${isObsMode ? 'OBS' : 'Director'}] Llamada cerrada`);
+                        console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Llamada cerrada`);
                         setGuestConnected(false);
                         setStatus('Conexión perdida, esperando reconexión...');
                         // Intentar reconectar
@@ -152,13 +152,13 @@
                     });
                     
                     call.on('error', (err) => {
-                        console.error(`[${isObsMode ? 'OBS' : 'Director'}] Error en llamada:`, err);
+                        console.error(`[${isLiveuMode ? 'LiveU' : 'Director'}] Error en llamada:`, err);
                         setStatus('Error en la conexión');
                     });
                 });
                 
                 peer.current.on('error', (err) => {
-                    console.error(`[${isObsMode ? 'OBS' : 'Director'}] Peer error:`, err);
+                    console.error(`[${isLiveuMode ? 'LiveU' : 'Director'}] Peer error:`, err);
                     if (err.type === 'peer-unavailable') {
                         setStatus('Esperando que el invitado se conecte...');
                     } else {
@@ -167,7 +167,7 @@
                 });
                 
                 peer.current.on('disconnected', () => {
-                    console.log(`[${isObsMode ? 'OBS' : 'Director'}] Peer desconectado, reconectando...`);
+                    console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Peer desconectado, reconectando...`);
                     setStatus('Desconectado, reconectando...');
                     peer.current.reconnect();
                 });
@@ -179,7 +179,7 @@
                 // MQTT para tally
                 mqttClient.current = mqtt.connect(MQTT_BROKER);
                 
-                if (!isObsMode) {
+                if (!isLiveuMode) {
                     navigator.mediaDevices.enumerateDevices().then(devs => {
                         const audios = devs.filter(d => d.kind === 'audioinput');
                         setAudioDevices(audios);
@@ -192,7 +192,7 @@
                     if (peer.current) peer.current.destroy(); 
                     if (mqttClient.current) mqttClient.current.end(); 
                 };
-            }, [roomName, isObsMode, connectionAttempts]);
+            }, [roomName, isLiveuMode, connectionAttempts]);
 
             const handleTally = (s) => {
                 setTally(s);
@@ -236,15 +236,15 @@
             const copyLink = (m) => {
                 const url = `${window.location.href.split('?')[0]}?mode=${m}&room=${roomName}`;
                 navigator.clipboard.writeText(url); 
-                alert(`Link ${m === 'guest' ? 'INVITADO' : 'OBS'} copiado al portapapeles`);
+                alert(`Link ${m === 'guest' ? 'INVITADO' : 'LiveU'} copiado al portapapeles`);
             };
 
-            if (isObsMode) return (
-                <div className="obs-layout">
-                    <video ref={remoteVideoRef} className="obs-video" autoPlay playsInline muted={false}></video>
+            if (isLiveuMode) return (
+                <div className="liveu-layout">
+                    <video ref={remoteVideoRef} className="liveu-video" autoPlay playsInline muted={false}></video>
                     {!guestConnected && (
-                        <div className="obs-status">
-                            <div className="text-xl font-bold mb-2">📺 OBS MODE</div>
+                        <div className="liveu-status">
+                            <div className="text-xl font-bold mb-2">📺 LiveU MODE</div>
                             <div>Sala: {roomName}</div>
                             <div className="text-sm mt-2">{status}</div>
                             <div className="text-xs mt-4">Esperando que el invitado se conecte...</div>
@@ -285,7 +285,7 @@
                         </button>
                         
                         <label className="text-gray-400 font-bold uppercase block mb-2 text-[10px]">🔗 ENLACES RÁPIDOS</label>
-                        <button className="btn btn-green" onClick={()=>copyLink('obs')}>📺 COPIAR LINK OBS</button>
+                        <button className="btn btn-green" onClick={()=>copyLink('liveu')}>📺 COPIAR LINK LiveU</button>
                         <button className="btn btn-yellow" onClick={()=>copyLink('guest')}>🎥 COPIAR LINK INVITADO</button>
                         
                         <div className="h-px bg-slate-700 w-full my-4"></div>
@@ -301,7 +301,7 @@
                         {cleanMode && <button className="btn btn-red mt-2" onClick={()=>setCleanMode(false)}>❌ SALIR CLEAN</button>}
                         
                         <div className="text-xs text-gray-500 mt-4 text-center">
-                            <div>ID: {isObsMode ? 'OBS' : 'DIR'}_{roomName}</div>
+                            <div>ID: {isLiveuMode ? 'LiveU' : 'DIR'}_{roomName}</div>
                             <div className="mt-1">Consejo: Comparte el link INVITADO con tu participante</div>
                         </div>
                     </div>
@@ -326,7 +326,7 @@
             const mqttClient = useRef(null);
             const localStream = useRef(null);
             const directorConnected = useRef(false);
-            const obsConnected = useRef(false);
+            const liveuConnected = useRef(false);
 
             const switchCamera = async () => {
                 const nextMode = facingMode === 'user' ? 'environment' : 'user';
@@ -406,10 +406,10 @@
                                 }
                             });
                             
-                            // Llamar al OBS
-                            const obsCall = peer.current.call(`sc_obs_${baseId}`, stream);
-                            obsCall.on('error', (err) => {
-                                console.log('OBS no disponible (normal si no está abierto):', err);
+                            // Llamar al LiveU
+                            const liveuCall = peer.current.call(`sc_liveu_${baseId}`, stream);
+                            liveuCall.on('error', (err) => {
+                                console.log('LiveU no disponible (normal si no está abierto):', err);
                             });
                             
                             setConnectionStatus('Transmitiendo en vivo');
@@ -519,15 +519,15 @@
                 if (m && r) { 
                     setRoomName(r); 
                     setMode(m); 
-                    if (m === 'obs') document.body.classList.add('obs-mode');
+                    if (m === 'liveu') document.body.classList.add('liveu-mode');
                 } else {
                     const randomRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
                     setRoomName(randomRoom);
                 }
             }, []);
             
-            if (mode === 'director') return <ReceiverView roomName={roomName} isObsMode={false} />;
-            if (mode === 'obs') return <ReceiverView roomName={roomName} isObsMode={true} />;
+            if (mode === 'director') return <ReceiverView roomName={roomName} isLiveuMode={false} />;
+            if (mode === 'liveu') return <ReceiverView roomName={roomName} isLiveuMode={true} />;
             if (mode === 'guest') return <GuestView roomName={roomName} />;
             
             return (
