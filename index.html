@@ -2,557 +2,2031 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stream Call - Power By Iglgroup Streaming - Iglgroup (Fixed LiveU)</title>
-    
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://unpkg.com/mqtt@4.3.7/dist/mqtt.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iglgroup play - TV Digital | Canales en Vivo, Series y Películas</title>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-        body { background-color: #050505; color: white; font-family: 'Inter', sans-serif; margin: 0; padding: 0; height: 100vh; overflow: hidden; }
-        body.liveu-mode { background-color: transparent !important; }
+        /* ===== RESET ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-        .lobby-container { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; background: #0f172a; padding: 20px; text-align: center; }
-        .glass-box { background: rgba(30, 41, 59, 0.8); padding: 40px; border-radius: 16px; border: 1px solid #334155; box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-width: 400px; width: 100%; }
-        input { width: 100%; background: #000; border: 2px solid #334155; color: white; padding: 15px; border-radius: 8px; font-size: 1.2rem; text-align: center; font-weight: bold; margin-bottom: 20px; outline: none; text-transform: uppercase; }
-        
-        .quality-select { width: 100%; background: #000; border: 2px solid #334155; color: white; padding: 12px; border-radius: 8px; font-size: 1rem; text-align: center; font-weight: bold; margin-bottom: 20px; outline: none; cursor: pointer; }
+        body {
+            font-family: 'Poppins', 'Segoe UI', sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
 
-        .btn { width: 100%; padding: 12px; font-weight: 900; font-size: 0.9rem; border-radius: 8px; cursor: pointer; border: none; transition: 0.2s; text-transform: uppercase; }
-        .btn-blue { background: #3b82f6; color: white; margin-bottom: 10px; }
-        .btn-green { background: #10b981; color: black; margin-bottom: 10px; }
-        .btn-red { background: #ef4444; color: white; margin-bottom: 10px; }
-        .btn-gray { background: #334155; color: white; margin-bottom: 10px; border: 1px solid #475569; }
-        .btn-yellow { background: #eab308; color: black; margin-bottom: 10px; }
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
 
-        .liveu-layout { width: 100vw; height: 100vh; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; }
-        .liveu-video { width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; z-index: 1; }
-        .liveu-status { position: relative; z-index: 9999; background: rgba(0,0,0,0.85); color: #facc15; padding: 20px 30px; border-radius: 12px; font-family: monospace; font-size: 16px; border: 2px solid #facc15; text-align: center; }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
 
-        .director-layout { display: flex; height: 100vh; position: relative; }
-        .video-stage { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .remote-video { width: 100%; height: 100%; object-fit: contain; }
-        .director-controls { width: 350px; background: #0f172a; border-left: 1px solid #334155; display: flex; flex-direction: column; z-index: 10; flex-shrink: 0; overflow-y: auto; }
-        
-        select { width: 100%; background: #000 !important; border: 1px solid #334155 !important; color: #fff !important; padding: 10px; border-radius: 6px; font-size: 0.85rem; outline: none; margin-bottom: 10px; appearance: auto; }
+        /* ===== PRELOADER ===== */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.8s, visibility 0.8s;
+        }
 
-        .tally-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 25px; }
-        .t-btn { padding: 15px 5px; font-size: 0.8rem; font-weight: bold; border-radius: 8px; cursor: pointer; border: 2px solid transparent; background: #1e293b; color: #94a3b8; transition: all 0.2s; }
-        .t-btn.active-idle { border-color: #64748b; color: white; background: #334155; }
-        .t-btn.active-prev { background: rgba(34, 197, 94, 0.3); border-color: #22c55e; color: #22c55e; }
-        .t-btn.active-live { background: rgba(239, 68, 68, 0.3); border-color: #ef4444; color: #ef4444; animation: pulseRed 2s infinite; }
-        
-        .clean-mode .director-controls { display: none !important; }
-        .clean-mode .video-stage { width: 100vw; }
-        .exit-btn { position: absolute; top: 15px; right: 15px; z-index: 100; background: rgba(220, 38, 38, 0.8); color: white; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: 2px solid white; font-size: 12px; }
+        #preloader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
 
-        .guest-layout { width: 100vw; height: 100vh; position: relative; background: #111; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .guest-video { width: 100%; height: 100%; object-fit: cover; }
-        .guest-tally-border { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 15px solid transparent; pointer-events: none; transition: border-color 0.3s; z-index: 50; box-sizing: border-box; }
-        .guest-layout.tally-live .guest-tally-border { border-color: #ef4444; box-shadow: inset 0 0 50px rgba(239,68,68,0.8); }
-        .guest-layout.tally-prev .guest-tally-border { border-color: #22c55e; box-shadow: inset 0 0 50px rgba(34,197,94,0.8); }
-        
-        .return-pip { position: absolute; top: 20px; left: 20px; width: 260px; aspect-ratio: 16/9; background: #000; border: 2px solid #475569; border-radius: 12px; overflow: hidden; z-index: 80; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
-        .return-pip.active { opacity: 1; pointer-events: auto; }
-        .return-pip video { width: 100%; height: 100%; object-fit: cover; }
-        .pip-label { position: absolute; bottom: 4px; left: 4px; background: rgba(0,0,0,0.8); color: white; font-size: 10px; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .loader {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #1a1a1a;
+            border-top: 3px solid #ce1b1b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
 
-        .guest-overlay { position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); padding: 12px 25px; border-radius: 50px; display: flex; align-items: center; gap: 15px; z-index: 100; border: 1px solid #333; }
-        .mic-btn { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.2rem; transition: 0.2s; background: #334155; color: white; }
-        .mic-btn.off { background: #ef4444; }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
-        .big-tally-text { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); font-size: 1.5rem; font-weight: 900; padding: 5px 20px; border-radius: 10px; z-index: 100; text-transform: uppercase; display: none; }
-        .guest-layout.tally-live .big-tally-text { display: block; background: #ef4444; color: white; }
-        .guest-layout.tally-prev .big-tally-text { display: block; background: #22c55e; color: black; }
+        /* ===== HEADER ===== */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px 0;
+            background: rgba(10, 10, 10, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            z-index: 1000;
+            transition: all 0.3s;
+        }
 
-        .status-badge { position: absolute; bottom: 20px; right: 20px; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 8px; font-size: 11px; z-index: 20; }
-        
-        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .header.scrolled {
+            padding: 10px 0;
+            background: rgba(10, 10, 10, 0.98);
+        }
+
+        .header .container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo img {
+            height: 45px;
+            width: auto;
+            border-radius: 8px;
+        }
+
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .logo-text span {
+            color: #ce1b1b;
+        }
+
+        .header-nav {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .header-nav a {
+            font-size: 15px;
+            font-weight: 500;
+            color: #aaa;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .header-nav a:hover {
+            color: #fff;
+        }
+
+        .header-nav a.active {
+            color: #ce1b1b;
+        }
+
+        .header-nav a.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: #ce1b1b;
+            border-radius: 2px;
+        }
+
+        .header-cta .btn-primary {
+            padding: 10px 28px;
+            background: linear-gradient(135deg, #ce1b1b, #ff4444);
+            border-radius: 30px;
+            color: #fff;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .header-cta .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(206, 27, 27, 0.4);
+        }
+
+        /* ===== HERO ===== */
+        .hero {
+            padding: 140px 0 80px;
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a0a0a 40%, #0a0a0a 100%);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -30%;
+            right: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(206,27,27,0.12) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            left: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(206,27,27,0.06) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulse 5s ease-in-out infinite reverse;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .hero .container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(206,27,27,0.15);
+            border: 1px solid rgba(206,27,27,0.3);
+            padding: 6px 20px;
+            border-radius: 30px;
+            font-size: 13px;
+            color: #ce1b1b;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+
+        .hero h1 {
+            font-size: 56px;
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: 10px;
+        }
+
+        .hero h1 .highlight {
+            background: linear-gradient(135deg, #ce1b1b, #ff6b6b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero .subtitle {
+            font-size: 22px;
+            font-weight: 300;
+            color: #aaa;
+            letter-spacing: 2px;
+            margin-bottom: 30px;
+        }
+
+        .hero .subtitle span {
+            color: #ce1b1b;
+            font-weight: 600;
+        }
+
+        .hero p {
+            font-size: 18px;
+            color: #888;
+            max-width: 600px;
+            margin: 0 auto 30px;
+        }
+
+        .hero .btn-primary-lg {
+            padding: 16px 50px;
+            font-size: 18px;
+            border-radius: 50px;
+            background: linear-gradient(135deg, #ce1b1b, #ff4444);
+            color: #fff;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .hero .btn-primary-lg:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(206, 27, 27, 0.5);
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: 60px;
+            margin-top: 50px;
+            flex-wrap: wrap;
+        }
+
+        .hero-stats .stat {
+            text-align: center;
+        }
+
+        .hero-stats .stat h3 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #ce1b1b;
+        }
+
+        .hero-stats .stat p {
+            font-size: 14px;
+            color: #888;
+            margin: 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* ===== MOCKUP ===== */
+        .mockup-section {
+            padding: 0 0 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .mockup-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #1a1a1a, #2a1a1a);
+            border-radius: 24px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+        }
+
+        .mockup-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 20px;
+        }
+
+        .mockup-dots {
+            display: flex;
+            gap: 6px;
+        }
+
+        .mockup-dots span {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .mockup-dots span:nth-child(1) { background: #ff5f57; }
+        .mockup-dots span:nth-child(2) { background: #ffbd2e; }
+        .mockup-dots span:nth-child(3) { background: #28c840; }
+
+        .mockup-title {
+            color: #666;
+            font-size: 14px;
+            margin-left: 10px;
+            font-weight: 300;
+        }
+
+        .mockup-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .mockup-channel {
+            background: rgba(255,255,255,0.03);
+            padding: 15px 10px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.03);
+            transition: all 0.3s;
+        }
+
+        .mockup-channel:hover {
+            background: rgba(206,27,27,0.08);
+            border-color: rgba(206,27,27,0.2);
+            transform: translateY(-3px);
+        }
+
+        .mockup-channel .icon {
+            font-size: 28px;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .mockup-channel .name {
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        /* ===== CATEGORÍAS ===== */
+        .categories {
+            padding: 60px 0;
+            background: #0f0f0f;
+        }
+
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .category-card {
+            background: #1a1a1a;
+            padding: 30px 20px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.03);
+            transition: all 0.3s;
+        }
+
+        .category-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(206,27,27,0.3);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .category-card .icon {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .category-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .category-card p {
+            font-size: 13px;
+            color: #666;
+        }
+
+        /* ===== APLICACIONES PROPIAS ===== */
+        .apps-section {
+            padding: 80px 0;
+            background: #0a0a0a;
+        }
+
+        .apps-showcase {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .apps-info h2 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .apps-info h2 .highlight {
+            color: #ce1b1b;
+        }
+
+        .apps-info p {
+            color: #aaa;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .apps-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: #1a1a1a;
+            padding: 10px 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.05);
+            margin-right: 10px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .apps-badge .app-icon {
+            font-size: 24px;
+        }
+
+        .apps-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .app-card {
+            background: #1a1a1a;
+            padding: 25px 20px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.03);
+            transition: all 0.3s;
+        }
+
+        .app-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(206,27,27,0.2);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .app-card .icon {
+            font-size: 40px;
+            display: block;
+            margin-bottom: 10px;
+        }
+
+        .app-card h4 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .app-card p {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .app-card .tag {
+            display: inline-block;
+            background: rgba(206,27,27,0.15);
+            color: #ce1b1b;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 2px 12px;
+            border-radius: 20px;
+            margin-top: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* ===== X CLOUD ===== */
+        .xcloud-section {
+            padding: 80px 0;
+            background: linear-gradient(135deg, #0a0a0a, #1a0a0a);
+        }
+
+        .xcloud-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 50px;
+            align-items: center;
+        }
+
+        .xcloud-info h2 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .xcloud-info h2 .highlight {
+            color: #ce1b1b;
+        }
+
+        .xcloud-info p {
+            color: #aaa;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .xcloud-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .xcloud-feature {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #1a1a1a;
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .xcloud-feature .icon {
+            font-size: 20px;
+        }
+
+        .xcloud-feature span {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .xcloud-visual {
+            background: linear-gradient(135deg, #1a1a1a, #2a1a1a);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 1px solid rgba(206,27,27,0.1);
+        }
+
+        .xcloud-visual .big-icon {
+            font-size: 80px;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        .xcloud-visual h3 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ce1b1b;
+        }
+
+        .xcloud-visual p {
+            color: #888;
+            font-size: 14px;
+        }
+
+        .xcloud-devices {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .xcloud-devices .device {
+            background: rgba(255,255,255,0.03);
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        /* ===== BENEFICIOS ===== */
+        .benefits {
+            padding: 80px 0;
+            background: #0f0f0f;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .section-header h2 {
+            font-size: 38px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .section-header h2 .highlight {
+            color: #ce1b1b;
+        }
+
+        .section-header p {
+            color: #888;
+            font-size: 18px;
+        }
+
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .benefit-card {
+            background: #1a1a1a;
+            padding: 35px 25px;
+            border-radius: 16px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.03);
+            transition: all 0.3s;
+        }
+
+        .benefit-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(206,27,27,0.2);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .benefit-card .icon {
+            font-size: 44px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .benefit-card h3 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .benefit-card p {
+            color: #888;
+            font-size: 14px;
+        }
+
+        /* ===== CANALES DESTACADOS ===== */
+        .channels-showcase {
+            padding: 80px 0;
+            background: #0a0a0a;
+        }
+
+        .channels-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .channel-item {
+            background: #1a1a1a;
+            padding: 20px 15px;
+            border-radius: 12px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.03);
+            transition: all 0.3s;
+        }
+
+        .channel-item:hover {
+            background: rgba(206,27,27,0.08);
+            border-color: rgba(206,27,27,0.2);
+            transform: scale(1.03);
+        }
+
+        .channel-item .emoji {
+            font-size: 30px;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .channel-item .name {
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        /* ===== PLANES ===== */
+        .pricing {
+            padding: 80px 0;
+            background: #0f0f0f;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .pricing-card {
+            background: #1a1a1a;
+            padding: 40px 30px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+            transition: all 0.3s;
+            text-align: center;
+            position: relative;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-8px);
+            border-color: rgba(206,27,27,0.3);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .pricing-card.popular {
+            border-color: #ce1b1b;
+            background: linear-gradient(135deg, #1a0a0a, #1a1a1a);
+        }
+
+        .pricing-card .badge {
+            position: absolute;
+            top: -12px;
+            right: 20px;
+            background: #ce1b1b;
+            padding: 4px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .pricing-card .name {
+            font-size: 22px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .pricing-card .desc {
+            color: #888;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .pricing-card .features {
+            list-style: none;
+            text-align: left;
+            margin: 20px 0 30px;
+        }
+
+        .pricing-card .features li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+
+        .pricing-card .features li::before {
+            content: '✓';
+            color: #ce1b1b;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .pricing-card .btn-whatsapp {
+            display: inline-block;
+            padding: 14px 40px;
+            background: #25D366;
+            border-radius: 30px;
+            color: #fff;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .pricing-card .btn-whatsapp:hover {
+            transform: scale(1.04);
+            box-shadow: 0 0 30px rgba(37, 211, 102, 0.3);
+        }
+
+        .pricing-note {
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* ===== TESTIMONIOS ===== */
+        .testimonials {
+            padding: 80px 0;
+            background: #0a0a0a;
+        }
+
+        .testimonials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .testimonial-card {
+            background: #1a1a1a;
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .testimonial-card .stars {
+            color: #f1c40f;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .testimonial-card p {
+            color: #ccc;
+            font-style: italic;
+            margin-bottom: 15px;
+            font-size: 15px;
+        }
+
+        .testimonial-card .author {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .testimonial-card .author .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ce1b1b, #ff6b6b);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .testimonial-card .author .name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .testimonial-card .author .role {
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* ===== DESCARGA APP ===== */
+        .download-section {
+            padding: 80px 0;
+            background: linear-gradient(135deg, #0a0a0a, #1a0a0a);
+        }
+
+        .download-banner {
+            background: linear-gradient(145deg, #1a1a1a, #2a1a1a);
+            border-radius: 24px;
+            padding: 50px 40px;
+            text-align: center;
+            border: 1px solid rgba(206,27,27,0.15);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .download-banner .icon-large {
+            font-size: 64px;
+            display: block;
+            margin-bottom: 15px;
+        }
+
+        .download-banner h2 {
+            font-size: 38px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .download-banner h2 .highlight {
+            color: #ce1b1b;
+        }
+
+        .download-banner p {
+            color: #aaa;
+            font-size: 16px;
+            margin-bottom: 30px;
+        }
+
+        .download-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 25px;
+            flex-wrap: wrap;
+        }
+
+        .btn-download {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 35px;
+            background: #1a1a1a;
+            border: 2px solid rgba(206,27,27,0.3);
+            border-radius: 16px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            min-width: 220px;
+            justify-content: center;
+        }
+
+        .btn-download:hover {
+            transform: translateY(-4px);
+            border-color: #ce1b1b;
+            box-shadow: 0 10px 30px rgba(206,27,27,0.15);
+        }
+
+        .btn-download .version {
+            display: block;
+            font-size: 12px;
+            font-weight: 300;
+            color: #888;
+        }
+
+        .btn-download .app-name {
+            display: block;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .btn-download .icon {
+            font-size: 28px;
+        }
+
+        .btn-download .text-group {
+            text-align: left;
+        }
+
+        .btn-download.v3 {
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-download.v4 {
+            border-color: #ce1b1b;
+            background: rgba(206,27,27,0.05);
+        }
+
+        .btn-download.v4 .version {
+            color: #ce1b1b;
+        }
+
+        .download-note {
+            margin-top: 20px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .download-note a {
+            color: #ce1b1b;
+            font-weight: 500;
+        }
+
+        /* ===== CTA FINAL ===== */
+        .cta-section {
+            padding: 80px 0;
+            background: linear-gradient(135deg, #0a0a0a, #1a0a0a);
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: 42px;
+            font-weight: 700;
+            margin-bottom: 15px;
+        }
+
+        .cta-section h2 .highlight {
+            color: #ce1b1b;
+        }
+
+        .cta-section p {
+            color: #aaa;
+            font-size: 18px;
+            max-width: 600px;
+            margin: 0 auto 30px;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-whatsapp-large {
+            padding: 16px 50px;
+            background: #25D366;
+            border-radius: 50px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: 700;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .btn-whatsapp-large:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(37, 211, 102, 0.4);
+        }
+
+        .btn-secondary {
+            padding: 16px 40px;
+            background: transparent;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 50px;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .btn-secondary:hover {
+            border-color: #fff;
+            transform: scale(1.05);
+        }
+
+        /* ===== FAQ ===== */
+        .faq {
+            padding: 80px 0;
+            background: #0f0f0f;
+        }
+
+        .faq-grid {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            background: #1a1a1a;
+            margin-bottom: 10px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .faq-question {
+            padding: 20px 25px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .faq-question:hover {
+            background: rgba(206,27,27,0.05);
+        }
+
+        .faq-question .arrow {
+            transition: transform 0.3s;
+        }
+
+        .faq-item.active .faq-question .arrow {
+            transform: rotate(180deg);
+        }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            padding: 0 25px;
+            color: #aaa;
+        }
+
+        .faq-item.active .faq-answer {
+            max-height: 200px;
+            padding: 0 25px 20px;
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            padding: 40px 0;
+            background: #0a0a0a;
+            border-top: 1px solid rgba(255,255,255,0.03);
+        }
+
+        .footer .container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .footer .logo-footer {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .footer .logo-footer img {
+            height: 35px;
+            width: auto;
+            border-radius: 8px;
+        }
+
+        .footer .logo-footer span {
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .footer .logo-footer span .highlight {
+            color: #ce1b1b;
+        }
+
+        .footer .copyright {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .footer .social {
+            display: flex;
+            gap: 20px;
+        }
+
+        .footer .social a {
+            color: #666;
+            transition: color 0.3s;
+            font-size: 20px;
+        }
+
+        .footer .social a:hover {
+            color: #ce1b1b;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 1024px) {
+            .hero h1 {
+                font-size: 42px;
+            }
+
+            .mockup-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .apps-showcase {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .xcloud-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .xcloud-features {
+                justify-items: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .hero {
+                padding: 120px 0 60px;
+            }
+
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .hero .subtitle {
+                font-size: 18px;
+            }
+
+            .hero-stats {
+                gap: 30px;
+            }
+
+            .hero-stats .stat h3 {
+                font-size: 26px;
+            }
+
+            .section-header h2 {
+                font-size: 28px;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+                max-width: 400px;
+                margin: 0 auto;
+            }
+
+            .mockup-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .cta-section h2 {
+                font-size: 28px;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .footer .container {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .categories-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .apps-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .xcloud-features {
+                grid-template-columns: 1fr;
+            }
+
+            .header-nav {
+                display: none;
+            }
+
+            .download-banner {
+                padding: 30px 20px;
+            }
+
+            .download-banner h2 {
+                font-size: 28px;
+            }
+
+            .download-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn-download {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .hero h1 {
+                font-size: 26px;
+            }
+
+            .hero .subtitle {
+                font-size: 15px;
+            }
+
+            .hero .btn-primary-lg {
+                padding: 14px 30px;
+                font-size: 16px;
+            }
+
+            .logo img {
+                height: 35px;
+            }
+
+            .logo-text {
+                font-size: 18px;
+            }
+
+            .mockup-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+
+            .mockup-channel {
+                padding: 10px 5px;
+            }
+
+            .mockup-channel .icon {
+                font-size: 20px;
+            }
+
+            .mockup-channel .name {
+                font-size: 10px;
+            }
+
+            .categories-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 12px;
+            }
+
+            .category-card {
+                padding: 20px 15px;
+            }
+
+            .category-card .icon {
+                font-size: 30px;
+            }
+
+            .benefits-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .channels-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+
+            .apps-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-whatsapp-large {
+                padding: 14px 30px;
+                font-size: 16px;
+                width: 100%;
+                justify-content: center;
+            }
+
+            .btn-secondary {
+                width: 100%;
+                text-align: center;
+            }
+
+            .xcloud-visual .big-icon {
+                font-size: 50px;
+            }
+
+            .xcloud-visual h3 {
+                font-size: 22px;
+            }
+
+            .footer .logo-footer img {
+                height: 28px;
+            }
+
+            .download-banner h2 {
+                font-size: 24px;
+            }
+        }
+
+        /* ===== REVEAL ANIMATIONS ===== */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
-    <div id="root"></div>
 
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-        const PEER_CONFIG = { 
-            config: { 
-                'iceServers': [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    { urls: 'stun:stun2.l.google.com:19302' }
-                ]
-            } 
-        };
-        const MQTT_BROKER = 'wss://broker.emqx.io:8084/mqtt';
+    <!-- ===== PRELOADER ===== -->
+    <div id="preloader">
+        <div class="loader"></div>
+    </div>
 
-        // --- RECEPTOR (DIRECTOR / LiveU) ---
-        const ReceiverView = ({ roomName, isLiveuMode }) => {
-            const [status, setStatus] = useState('Esperando invitado...');
-            const [guestConnected, setGuestConnected] = useState(false);
-            const [tally, setTally] = useState('idle');
-            const [cleanMode, setCleanMode] = useState(false); 
-            const [audioDevices, setAudioDevices] = useState([]);
-            const [selectedAudio, setSelectedAudio] = useState('');
-            const [talkbackActive, setTalkbackActive] = useState(false);
-            const [connectionAttempts, setConnectionAttempts] = useState(0);
+    <!-- ===== HEADER ===== -->
+    <header class="header" id="header">
+        <div class="container">
+            <div class="logo">
+                <img src="https://iglgroup.site/logo.png" alt="Iglgroup play">
+                <div class="logo-text">Iglgroup <span>play</span></div>
+            </div>
+            <nav class="header-nav">
+                <a href="#hero" class="active">Inicio</a>
+                <a href="https://iglgroup.site/envivo/" target="_blank">📺 En Vivo</a>
+                <a href="#descargas">📱 Descargas</a>
+                <a href="#planes">Planes</a>
+                <a href="#contacto">Contacto</a>
+            </nav>
+            <div class="header-cta">
+                <a href="https://wa.me/542646221729?text=Hola%20Iglgroup%20play!%20Quiero%20contratar%20el%20servicio%20de%20TV%20Digital" target="_blank" class="btn-primary">Contratar</a>
+            </div>
+        </div>
+    </header>
 
-            const peer = useRef(null);
-            const remoteVideoRef = useRef(null);
-            const mqttClient = useRef(null);
-            const returnStreamRef = useRef(null);
-            const reconnectTimeout = useRef(null);
+    <!-- ===== HERO ===== -->
+    <section class="hero" id="hero">
+        <div class="container">
+            <div class="hero-badge">⭐ +500 Usuarios Satisfechos</div>
+            <h1>
+                DISFRUTA <span class="highlight">SIN LÍMITES</span>
+            </h1>
+            <div class="subtitle">
+                <span>TV DIGITAL</span> · CANALES EN VIVO · SERIES · PELÍCULAS · DEPORTES Y MÁS
+            </div>
+            <p>
+                La mejor experiencia de entretenimiento en un solo lugar. 
+                Disfruta de contenido ilimitado en cualquier dispositivo, 
+                en cualquier lugar.
+            </p>
+            <a href="https://wa.me/542646221729?text=Hola%20Iglgroup%20play!%20Quiero%20contratar%20el%20servicio%20de%20TV%20Digital" target="_blank" class="btn-primary-lg">
+                💬 ¡CONTRATA AHORA!
+            </a>
+            <div class="hero-stats">
+                <div class="stat">
+                    <h3>+1000</h3>
+                    <p>Canales en vivo</p>
+                </div>
+                <div class="stat">
+                    <h3>4K</h3>
+                    <p>Calidad HD / Full HD</p>
+                </div>
+                <div class="stat">
+                    <h3>24/7</h3>
+                    <p>Servicio confiable</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-            // Función para conectar/reconectar
-            const connectPeer = () => {
-                const baseId = roomName.toUpperCase();
-                const myId = isLiveuMode ? `sc_liveu_${baseId}` : `sc_dir_${baseId}`;
-                
-                if (peer.current) {
-                    peer.current.destroy();
+    <!-- ===== MOCKUP ===== -->
+    <section class="mockup-section">
+        <div class="container">
+            <div class="mockup-container reveal">
+                <div class="mockup-header">
+                    <div class="mockup-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                    <span class="mockup-title">Iglgroup play · TV en Vivo</span>
+                </div>
+                <div class="mockup-grid">
+                    <div class="mockup-channel">
+                        <span class="icon">📰</span>
+                        <span class="name">CNN</span>
+                    </div>
+                    <div class="mockup-channel">
+                        <span class="icon">⚽</span>
+                        <span class="name">ESPN</span>
+                    </div>
+                    <div class="mockup-channel">
+                        <span class="icon">🎬</span>
+                        <span class="name">HBO</span>
+                    </div>
+                    <div class="mockup-channel">
+                        <span class="icon">🌍</span>
+                        <span class="name">BBC</span>
+                    </div>
+                    <div class="mockup-channel">
+                        <span class="icon">🎮</span>
+                        <span class="name">Disney</span>
+                    </div>
+                    <div class="mockup-channel">
+                        <span class="icon">📡</span>
+                        <span class="name">Nat Geo</span>
+                    </div>
+                    <div class="mockup-channel">
+                        <span class="icon">🏎️</span>
+                        <span class="name">Fox Sports</span>
+                    </div>
+                    <div class="mockup-channel">
+                        <span class="icon">🎵</span>
+                        <span class="name">MTV</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== CATEGORÍAS ===== -->
+    <section class="categories" id="categorias">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>🎯 <span class="highlight">Vive la pasión</span> estés donde estés</h2>
+                <p>Todo el contenido que necesitas en un solo lugar</p>
+            </div>
+            <div class="categories-grid">
+                <div class="category-card reveal">
+                    <span class="icon">📺</span>
+                    <h4>Canales en Vivo</h4>
+                    <p>Nacionales e internacionales</p>
+                </div>
+                <div class="category-card reveal">
+                    <span class="icon">🎬</span>
+                    <h4>Películas</h4>
+                    <p>Lo mejor del cine y streaming</p>
+                </div>
+                <div class="category-card reveal">
+                    <span class="icon">📺</span>
+                    <h4>Series</h4>
+                    <p>Las mejores series sin límites</p>
+                </div>
+                <div class="category-card reveal">
+                    <span class="icon">⚽</span>
+                    <h4>Deportes en Vivo</h4>
+                    <p>Fútbol, UFC, F1 y mucho más</p>
+                </div>
+                <div class="category-card reveal">
+                    <span class="icon">📱</span>
+                    <h4>Todos tus dispositivos</h4>
+                    <p>Smart TV, Celular, Tablet, TV Box, PC</p>
+                </div>
+                <div class="category-card reveal">
+                    <span class="icon">🛡️</span>
+                    <h4>Servicio Confiable</h4>
+                    <p>Estable, seguro y sin cortes</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== APLICACIONES PROPIAS ===== -->
+    <section class="apps-section" id="apps">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>📱 <span class="highlight">Aplicaciones Propias</span> Disponibles</h2>
+                <p>Disfruta de nuestra plataforma en todos tus dispositivos</p>
+            </div>
+            <div class="apps-showcase">
+                <div class="apps-info reveal">
+                    <p>
+                        Iglgroup play cuenta con su propia línea de aplicaciones desarrolladas 
+                        para brindarte la mejor experiencia de usuario en cada dispositivo.
+                    </p>
+                    <div>
+                        <span class="apps-badge"><span class="app-icon">📱</span> Android</span>
+                        <span class="apps-badge"><span class="app-icon">🍎</span> iOS</span>
+                        <span class="apps-badge"><span class="app-icon">💻</span> Windows</span>
+                        <span class="apps-badge"><span class="app-icon">🐧</span> Linux</span>
+                        <span class="apps-badge"><span class="app-icon">📺</span> Android TV</span>
+                        <span class="apps-badge"><span class="app-icon">🔥</span> Fire TV</span>
+                    </div>
+                    <div style="margin-top:15px;">
+                        <span class="apps-badge" style="border-color:rgba(206,27,27,0.3);">
+                            <span class="app-icon">📺</span> Samsung TV
+                        </span>
+                        <span class="apps-badge" style="border-color:rgba(206,27,27,0.3);">
+                            <span class="app-icon">📺</span> LG TV
+                        </span>
+                    </div>
+                </div>
+                <div class="apps-grid reveal">
+                    <div class="app-card">
+                        <span class="icon">📺</span>
+                        <h4>Iglgroup TV</h4>
+                        <p>Para Smart TV y Android TV</p>
+                        <span class="tag">Descarga Directa</span>
+                    </div>
+                    <div class="app-card">
+                        <span class="icon">📱</span>
+                        <h4>Iglgroup Mobile</h4>
+                        <p>Para celulares y tablets</p>
+                        <span class="tag">Play Store / App Store</span>
+                    </div>
+                    <div class="app-card">
+                        <span class="icon">💻</span>
+                        <h4>Iglgroup PC</h4>
+                        <p>Para Windows y Mac</p>
+                        <span class="tag">Descarga Directa</span>
+                    </div>
+                    <div class="app-card">
+                        <span class="icon">🔥</span>
+                        <h4>Iglgroup Fire</h4>
+                        <p>Para Amazon Fire Stick</p>
+                        <span class="tag">Amazon Appstore</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== DESCARGA APP ===== -->
+    <section class="download-section" id="descargas">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>📥 Descarga nuestra <span class="highlight">App</span></h2>
+                <p>Elige la versión y comienza a disfrutar en tu dispositivo Android</p>
+            </div>
+            <div class="download-banner reveal">
+                <span class="icon-large">📱</span>
+                <h2>Iglgroup <span class="highlight">Play</span></h2>
+                <p>Descarga la aplicación oficial y lleva toda la TV digital en tu bolsillo.</p>
+                <div class="download-buttons">
+                    <a href="https://www.mediafire.com/file/9mtlk1l80nhymam/IGLGROUPv3.apk/file" target="_blank" class="btn-download v3">
+                        <span class="icon">📲</span>
+                        <span class="text-group">
+                            <span class="app-name">Iglgroup v3</span>
+                            <span class="version">Versión 3.0 · 96.58 MB</span>
+                        </span>
+                    </a>
+                    <a href="https://www.mediafire.com/file/syfbmqbwlsli65n/IglGroup_V4.apk/file" target="_blank" class="btn-download v4">
+                        <span class="icon">🚀</span>
+                        <span class="text-group">
+                            <span class="app-name">Iglgroup v4</span>
+                            <span class="version">Versión 4.0 · Última</span>
+                        </span>
+                    </a>
+                </div>
+                <div class="download-note">
+                    ⚡ Descargas directas desde MediaFire. <a href="#faq">¿Problemas para descargar?</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== X CLOUD - FUSIÓN ÚNICA ===== -->
+    <section class="xcloud-section" id="xcloud">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>☁️ <span class="highlight">Fusión única</span> con X Cloud</h2>
+                <p>La tecnología más avanzada para una experiencia sin igual</p>
+            </div>
+            <div class="xcloud-content">
+                <div class="xcloud-info reveal">
+                    <h2>X Cloud <span class="highlight">Technology</span></h2>
+                    <p>
+                        Nuestra plataforma está potenciada por X Cloud, una infraestructura 
+                        de vanguardia que garantiza la mejor calidad de transmisión, 
+                        estabilidad y velocidad en todos tus dispositivos.
+                    </p>
+                    <div class="xcloud-features">
+                        <div class="xcloud-feature">
+                            <span class="icon">⚡</span>
+                            <span>Streaming Ultra Rápido</span>
+                        </div>
+                        <div class="xcloud-feature">
+                            <span class="icon">🛡️</span>
+                            <span>Seguridad Avanzada</span>
+                        </div>
+                        <div class="xcloud-feature">
+                            <span class="icon">🌐</span>
+                            <span>Servidores Globales</span>
+                        </div>
+                        <div class="xcloud-feature">
+                            <span class="icon">📊</span>
+                            <span>Optimización Inteligente</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="xcloud-visual reveal">
+                    <span class="big-icon">☁️</span>
+                    <h3>X Cloud</h3>
+                    <p>La fusión perfecta entre tecnología y entretenimiento</p>
+                    <div class="xcloud-devices">
+                        <span class="device">📺 Samsung</span>
+                        <span class="device">📺 LG</span>
+                        <span class="device">📱 Android</span>
+                        <span class="device">🍎 iOS</span>
+                        <span class="device">💻 PC</span>
+                        <span class="device">🔥 Fire TV</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== BENEFICIOS ===== -->
+    <section class="benefits" id="beneficios">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>✨ <span class="highlight">La mejor experiencia</span> de entretenimiento</h2>
+                <p>Disfruta de una imagen estable y rápida en HD / Full HD</p>
+            </div>
+            <div class="benefits-grid">
+                <div class="benefit-card reveal">
+                    <span class="icon">🚀</span>
+                    <h3>Rápido y Estable</h3>
+                    <p>Servidores optimizados para una reproducción sin cortes y velocidad instantánea</p>
+                </div>
+                <div class="benefit-card reveal">
+                    <span class="icon">🎯</span>
+                    <h3>Acceso Ilimitado</h3>
+                    <p>Disfruta de todo el contenido sin restricciones, cuando y donde quieras</p>
+                </div>
+                <div class="benefit-card reveal">
+                    <span class="icon">🔒</span>
+                    <h3>Seguro y Confiable</h3>
+                    <p>Tu privacidad es nuestra prioridad. Conexión segura y estable siempre</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== CANALES DESTACADOS ===== -->
+    <section class="channels-showcase">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>📡 Canales <span class="highlight">Destacados</span></h2>
+                <p>+1000 canales en vivo para todos los gustos</p>
+            </div>
+            <div class="channels-grid">
+                <div class="channel-item reveal"><span class="emoji">📰</span><span class="name">CNN</span></div>
+                <div class="channel-item reveal"><span class="emoji">⚽</span><span class="name">ESPN</span></div>
+                <div class="channel-item reveal"><span class="emoji">🎬</span><span class="name">HBO</span></div>
+                <div class="channel-item reveal"><span class="emoji">🌍</span><span class="name">BBC</span></div>
+                <div class="channel-item reveal"><span class="emoji">🎮</span><span class="name">Disney</span></div>
+                <div class="channel-item reveal"><span class="emoji">📡</span><span class="name">Nat Geo</span></div>
+                <div class="channel-item reveal"><span class="emoji">🏎️</span><span class="name">Fox Sports</span></div>
+                <div class="channel-item reveal"><span class="emoji">🎵</span><span class="name">MTV</span></div>
+                <div class="channel-item reveal"><span class="emoji">🍿</span><span class="name">Netflix</span></div>
+                <div class="channel-item reveal"><span class="emoji">🐧</span><span class="name">Discovery</span></div>
+                <div class="channel-item reveal"><span class="emoji">⚾</span><span class="name">MLB</span></div>
+                <div class="channel-item reveal"><span class="emoji">🏀</span><span class="name">NBA</span></div>
+                <div class="channel-item reveal"><span class="emoji">🏈</span><span class="name">NFL</span></div>
+                <div class="channel-item reveal"><span class="emoji">🎨</span><span class="name">TLC</span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== PLANES ===== -->
+    <section class="pricing" id="planes">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>💎 Nuestros <span class="highlight">Planes</span></h2>
+                <p>Elige el plan que mejor se adapte a ti y comienza a disfrutar</p>
+            </div>
+            <div class="pricing-grid">
+                <div class="pricing-card reveal">
+                    <div class="name">Básico</div>
+                    <div class="desc">Ideal para empezar</div>
+                    <ul class="features">
+                        <li>+500 canales en vivo</li>
+                        <li>Calidad HD</li>
+                        <li>1 dispositivo</li>
+                        <li>Acceso a películas y series</li>
+                        <li>Soporte básico</li>
+                    </ul>
+                    <a href="https://wa.me/542646221729?text=Hola%20Iglgroup%20play!%20Quiero%20contratar%20el%20plan%20Básico" target="_blank" class="btn-whatsapp">
+                        💬 Consultar
+                    </a>
+                </div>
+
+                <div class="pricing-card popular reveal">
+                    <div class="badge">★ Más Popular</div>
+                    <div class="name">Premium</div>
+                    <div class="desc">La mejor experiencia</div>
+                    <ul class="features">
+                        <li>+10,000 canales en vivo</li>
+                        <li>Calidad 4K y Full HD</li>
+                        <li>3 dispositivos</li>
+                        <li>Películas y series ilimitadas</li>
+                        <li>Deportes en vivo (Fútbol, UFC, F1)</li>
+                        <li>Acceso a App Iglgroup play</li>
+                        <li>Soporte 24/7</li>
+                    </ul>
+                    <a href="https://wa.me/542646221729?text=Hola%20Iglgroup%20play!%20Quiero%20contratar%20el%20plan%20Premium" target="_blank" class="btn-whatsapp">
+                        💬 Consultar
+                    </a>
+                </div>
+
+                <div class="pricing-card reveal">
+                    <div class="name">Familiar</div>
+                    <div class="desc">Para toda la familia</div>
+                    <ul class="features">
+                        <li>+10,000 canales en vivo</li>
+                        <li>Calidad 4K y Full HD</li>
+                        <li>5 dispositivos</li>
+                        <li>Películas y series ilimitadas</li>
+                        <li>Deportes en vivo</li>
+                        <li>Acceso a App Iglgroup play</li>
+                        <li>Soporte VIP 24/7</li>
+                        <li>Instalación guiada</li>
+                    </ul>
+                    <a href="https://wa.me/542646221729?text=Hola%20Iglgroup%20play!%20Quiero%20contratar%20el%20plan%20Familiar" target="_blank" class="btn-whatsapp">
+                        💬 Consultar
+                    </a>
+                </div>
+            </div>
+            <div class="pricing-note reveal">
+                📱 ¿Necesitas un plan personalizado? <a href="https://wa.me/542646221729" target="_blank" style="color:#ce1b1b;font-weight:600;">Contáctanos</a> y armamos algo a tu medida.
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== TESTIMONIOS ===== -->
+    <section class="testimonials" id="testimonios">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>⭐ Lo que dicen <span class="highlight">nuestros clientes</span></h2>
+                <p>Más de 500 usuarios confían en Iglgroup play</p>
+            </div>
+            <div class="testimonials-grid">
+                <div class="testimonial-card reveal">
+                    <div class="stars">★★★★★</div>
+                    <p>"Excelente servicio, la calidad de imagen es increíble y nunca se corta. ¡Lo recomiendo 100%!"</p>
+                    <div class="author">
+                        <div class="avatar">CM</div>
+                        <div>
+                            <div class="name">Carlos Martínez</div>
+                            <div class="role">Usuario Premium</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <div class="stars">★★★★★</div>
+                    <p>"Veo todos los partidos de fútbol en 4K sin ningún problema. La mejor inversión que hice."</p>
+                    <div class="author">
+                        <div class="avatar">AG</div>
+                        <div>
+                            <div class="name">Ana García</div>
+                            <div class="role">Usuario Premium</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="testimonial-card reveal">
+                    <div class="stars">★★★★★</div>
+                    <p>"El soporte técnico es increíble, me ayudaron a instalar todo en minutos. La app funciona perfecto."</p>
+                    <div class="author">
+                        <div class="avatar">JR</div>
+                        <div>
+                            <div class="name">Jorge Rodríguez</div>
+                            <div class="role">Usuario Familiar</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== FAQ ===== -->
+    <section class="faq" id="faq">
+        <div class="container">
+            <div class="section-header reveal">
+                <h2>❓ Preguntas <span class="highlight">Frecuentes</span></h2>
+                <p>Resolvemos tus dudas más comunes</p>
+            </div>
+            <div class="faq-grid">
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        ¿Qué dispositivos son compatibles?
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        Iglgroup play es compatible con Smart TV Samsung, LG, Android TV, Apple TV, Amazon Fire Stick, PC, Mac, iPhone, Android, Tablet y TV Box.
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        ¿Cómo descargo la aplicación Iglgroup play?
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        Te proporcionamos el enlace de descarga directa según tu dispositivo. Para Samsung y LG puedes descargarla desde la tienda de aplicaciones de tu TV.
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        ¿Qué es X Cloud?
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        X Cloud es nuestra tecnología de transmisión de vanguardia que garantiza la mejor calidad, estabilidad y velocidad en todos tus dispositivos.
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        ¿Cómo funciona la prueba gratis?
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        Contáctanos por WhatsApp y te daremos acceso a una prueba gratuita para que puedas probar el servicio antes de contratar.
+                    </div>
+                </div>
+                <div class="faq-item reveal">
+                    <div class="faq-question" onclick="toggleFaq(this)">
+                        ¿Tienen soporte técnico?
+                        <span class="arrow">▼</span>
+                    </div>
+                    <div class="faq-answer">
+                        Sí, contamos con soporte técnico 24/7 y atención personalizada a través de WhatsApp para resolver cualquier inconveniente.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== CTA FINAL ===== -->
+    <section class="cta-section" id="contacto">
+        <div class="container reveal">
+            <h2>🎯 ¡<span class="highlight">Consulta</span> y pedí tu <span class="highlight">prueba gratis</span>!</h2>
+            <p>
+                No esperes más para disfrutar del mejor contenido en calidad 4K con X Cloud. 
+                Contáctanos y comienza a disfrutar hoy mismo.
+            </p>
+            <div class="cta-buttons">
+                <a href="https://wa.me/542646221729?text=Hola%20Iglgroup%20play!%20Quiero%20una%20prueba%20gratis%20del%20servicio" target="_blank" class="btn-whatsapp-large">
+                    💬 Prueba Gratis
+                </a>
+                <a href="https://wa.me/542646221729" target="_blank" class="btn-secondary">
+                    📱 Soporte Técnico
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="footer">
+        <div class="container">
+            <div class="logo-footer">
+                <img src="https://iglgroup.site/logo.png" alt="Iglgroup play">
+                <span>Iglgroup <span class="highlight">play</span></span>
+            </div>
+            <div class="copyright">
+                &copy; 2026 Iglgroup play. Todos los derechos reservados.
+            </div>
+            <div class="social">
+                <a href="https://wa.me/542646221729" target="_blank" title="WhatsApp">💬</a>
+                <a href="#" title="Telegram">✈️</a>
+                <a href="#" title="Instagram">📸</a>
+                <a href="#" title="YouTube">▶️</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ===== JAVASCRIPT ===== -->
+    <script>
+        // Preloader
+        window.addEventListener('load', function() {
+            document.getElementById('preloader').classList.add('hidden');
+        });
+
+        // Header scroll effect
+        window.addEventListener('scroll', function() {
+            const header = document.getElementById('header');
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        // FAQ Toggle
+        function toggleFaq(element) {
+            const item = element.parentElement;
+            const isActive = item.classList.contains('active');
+            
+            document.querySelectorAll('.faq-item').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            if (!isActive) {
+                item.classList.add('active');
+            }
+        }
+
+        // Scroll Reveal Animations
+        const revealElements = document.querySelectorAll('.reveal');
+
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
                 }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+
+        revealElements.forEach(el => {
+            revealObserver.observe(el);
+        });
+
+        // Smooth scroll
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
                 
-                peer.current = new Peer(myId, PEER_CONFIG);
-                
-                peer.current.on('open', (id) => {
-                    console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Conectado con ID: ${id}`);
-                    setStatus(`Conectado, esperando invitado...`);
-                });
-                
-                peer.current.on('call', (call) => {
-                    console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Recibiendo llamada de:`, call.peer);
-                    setStatus(`Recibiendo señal...`);
-                    
-                    // Aceptar la llamada
-                    call.answer();
-                    
-                    call.on('stream', (stream) => {
-                        console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Stream recibido!`);
-                        if (remoteVideoRef.current) {
-                            remoteVideoRef.current.srcObject = stream;
-                            setGuestConnected(true);
-                            setStatus('ONLINE - Señal recibida');
-                        }
+                const target = document.querySelector(targetId);
+                if (target) {
+                    e.preventDefault();
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
                     });
-                    
-                    call.on('close', () => {
-                        console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Llamada cerrada`);
-                        setGuestConnected(false);
-                        setStatus('Conexión perdida, esperando reconexión...');
-                        // Intentar reconectar
-                        if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
-                        reconnectTimeout.current = setTimeout(() => {
-                            setConnectionAttempts(prev => prev + 1);
-                        }, 3000);
-                    });
-                    
-                    call.on('error', (err) => {
-                        console.error(`[${isLiveuMode ? 'LiveU' : 'Director'}] Error en llamada:`, err);
-                        setStatus('Error en la conexión');
-                    });
-                });
-                
-                peer.current.on('error', (err) => {
-                    console.error(`[${isLiveuMode ? 'LiveU' : 'Director'}] Peer error:`, err);
-                    if (err.type === 'peer-unavailable') {
-                        setStatus('Esperando que el invitado se conecte...');
-                    } else {
-                        setStatus(`Error: ${err.type}`);
-                    }
-                });
-                
-                peer.current.on('disconnected', () => {
-                    console.log(`[${isLiveuMode ? 'LiveU' : 'Director'}] Peer desconectado, reconectando...`);
-                    setStatus('Desconectado, reconectando...');
-                    peer.current.reconnect();
-                });
-            };
-            
-            useEffect(() => {
-                connectPeer();
-                
-                // MQTT para tally
-                mqttClient.current = mqtt.connect(MQTT_BROKER);
-                
-                if (!isLiveuMode) {
-                    navigator.mediaDevices.enumerateDevices().then(devs => {
-                        const audios = devs.filter(d => d.kind === 'audioinput');
-                        setAudioDevices(audios);
-                        if (audios.length > 0) setSelectedAudio(audios[0].deviceId);
-                    });
                 }
-                
-                return () => { 
-                    if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
-                    if (peer.current) peer.current.destroy(); 
-                    if (mqttClient.current) mqttClient.current.end(); 
-                };
-            }, [roomName, isLiveuMode, connectionAttempts]);
+            });
+        });
 
-            const handleTally = (s) => {
-                setTally(s);
-                if (mqttClient.current) {
-                    mqttClient.current.publish(`sc_tally/${roomName.toUpperCase()}`, JSON.stringify({ state: s }), { retain: true });
+        // Active nav link on scroll
+        const sections = document.querySelectorAll('section[id]');
+        const navLinks = document.querySelectorAll('.header-nav a:not([target="_blank"])');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop - 100;
+                if (window.scrollY >= sectionTop) {
+                    current = section.getAttribute('id');
                 }
-            };
+            });
 
-            const toggleReturn = async () => {
-                if (talkbackActive) {
-                    if (returnStreamRef.current) {
-                        returnStreamRef.current.getTracks().forEach(t => t.stop());
-                    }
-                    setTalkbackActive(false);
-                } else {
-                    try {
-                        const constraints = { 
-                            audio: selectedAudio ? { deviceId: { exact: selectedAudio } } : true,
-                            video: true 
-                        };
-                        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-                        returnStreamRef.current = stream;
-                        
-                        const guestId = `sc_guest_${roomName.toUpperCase()}`;
-                        const call = peer.current.call(guestId, stream);
-                        
-                        call.on('error', (err) => {
-                            console.error('Error en llamada de retorno:', err);
-                            alert('No se pudo enviar el retorno. ¿El invitado está conectado?');
-                            toggleReturn();
-                        });
-                        
-                        setTalkbackActive(true);
-                    } catch (e) { 
-                        console.error('Error en retorno:', e);
-                        alert("Error al acceder a cámara/micrófono para retorno"); 
-                    }
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
                 }
-            };
-
-            const copyLink = (m) => {
-                const url = `${window.location.href.split('?')[0]}?mode=${m}&room=${roomName}`;
-                navigator.clipboard.writeText(url); 
-                alert(`Link ${m === 'guest' ? 'INVITADO' : 'LiveU'} copiado al portapapeles`);
-            };
-
-            if (isLiveuMode) return (
-                <div className="liveu-layout">
-                    <video ref={remoteVideoRef} className="liveu-video" autoPlay playsInline muted={false}></video>
-                    {!guestConnected && (
-                        <div className="liveu-status">
-                            <div className="text-xl font-bold mb-2">📺 LiveU MODE</div>
-                            <div>Sala: {roomName}</div>
-                            <div className="text-sm mt-2">{status}</div>
-                            <div className="text-xs mt-4">Esperando que el invitado se conecte...</div>
-                        </div>
-                    )}
-                </div>
-            );
-
-            return (
-                <div className={`director-layout ${cleanMode ? 'clean-mode' : ''}`}>
-                    <div className="video-stage">
-                        <video ref={remoteVideoRef} className="remote-video relative z-10" autoPlay playsInline></video>
-                        {!guestConnected && (
-                            <div className="absolute text-gray-500 font-bold uppercase bg-black bg-opacity-50 p-4 rounded">
-                                {status}
-                            </div>
-                        )}
-                        <div className="status-badge">
-                            🟢 Sala: {roomName} | {guestConnected ? '📡 Conectado' : '⏳ Esperando'}
-                        </div>
-                    </div>
-                    <div className="director-controls p-5">
-                        <h2 className="text-xl font-black text-blue-400 mb-4 uppercase text-center tracking-tighter">StreamCall PRO</h2>
-                        
-                        <div className="bg-slate-800 p-3 rounded mb-4 text-center">
-                            <div className="text-xs text-gray-400">Estado del Invitado</div>
-                            <div className={`font-bold ${guestConnected ? 'text-green-400' : 'text-yellow-400'}`}>
-                                {guestConnected ? '✅ CONECTADO' : '⏳ ESPERANDO...'}
-                            </div>
-                        </div>
-                        
-                        <label className="text-blue-400 font-bold uppercase block mb-2 text-[10px]">📡 RETORNO AL INVITADO</label>
-                        <select value={selectedAudio} onChange={e => setSelectedAudio(e.target.value)} disabled={!guestConnected}>
-                            {audioDevices.map(d => <option key={d.deviceId} value={d.deviceId}>{d.label || 'Micrófono'}</option>)}
-                        </select>
-                        <button className={`btn ${talkbackActive ? 'btn-red' : 'btn-blue'} mb-6`} onClick={toggleReturn} disabled={!guestConnected}>
-                            {talkbackActive ? '🔴 DETENER RETORNO' : '▶️ ENVIAR RETORNO (Cámara + Audio)'}
-                        </button>
-                        
-                        <label className="text-gray-400 font-bold uppercase block mb-2 text-[10px]">🔗 ENLACES RÁPIDOS</label>
-                        <button className="btn btn-green" onClick={()=>copyLink('liveu')}>📺 COPIAR LINK LiveU</button>
-                        <button className="btn btn-yellow" onClick={()=>copyLink('guest')}>🎥 COPIAR LINK INVITADO</button>
-                        
-                        <div className="h-px bg-slate-700 w-full my-4"></div>
-                        
-                        <label className="text-gray-400 font-bold uppercase block mb-2 text-[10px]">🎯 CONTROL TALLY</label>
-                        <div className="tally-grid">
-                            <button className={`t-btn ${tally==='idle'?'active-idle':''}`} onClick={()=>handleTally('idle')}>⚫ OFF</button>
-                            <button className={`t-btn ${tally==='prev'?'active-prev':''}`} onClick={()=>handleTally('prev')}>🟢 PREV</button>
-                            <button className={`t-btn ${tally==='live'?'active-live':''}`} onClick={()=>handleTally('live')}>🔴 AIR</button>
-                        </div>
-                        
-                        <button className="btn btn-gray mt-4" onClick={()=>setCleanMode(true)}>🔲 MODO CLEAN</button>
-                        {cleanMode && <button className="btn btn-red mt-2" onClick={()=>setCleanMode(false)}>❌ SALIR CLEAN</button>}
-                        
-                        <div className="text-xs text-gray-500 mt-4 text-center">
-                            <div>ID: {isLiveuMode ? 'LiveU' : 'DIR'}_{roomName}</div>
-                            <div className="mt-1">Consejo: Comparte el link INVITADO con tu participante</div>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- INVITADO (GUEST) ---
-        const GuestView = ({ roomName }) => {
-            const [joined, setJoined] = useState(false);
-            const [quality, setQuality] = useState('720');
-            const [tally, setTally] = useState('idle');
-            const [micMuted, setMicMuted] = useState(false);
-            const [camOff, setCamOff] = useState(false);
-            const [receivingVideo, setReceivingVideo] = useState(false);
-            const [facingMode, setFacingMode] = useState('user');
-            const [connectionStatus, setConnectionStatus] = useState('Conectando...');
-            
-            const localVideoRef = useRef(null);
-            const returnMediaRef = useRef(null);
-            const peer = useRef(null);
-            const mqttClient = useRef(null);
-            const localStream = useRef(null);
-            const directorConnected = useRef(false);
-            const liveuConnected = useRef(false);
-
-            const switchCamera = async () => {
-                const nextMode = facingMode === 'user' ? 'environment' : 'user';
-                setFacingMode(nextMode);
-                if (localStream.current) {
-                    const videoTrack = localStream.current.getVideoTracks()[0];
-                    if (videoTrack) videoTrack.stop();
-                    const resolutions = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
-                    try {
-                        const newVideoStream = await navigator.mediaDevices.getUserMedia({ 
-                            video: { width: resolutions[quality][0], height: resolutions[quality][1], facingMode: nextMode }
-                        });
-                        const newVideoTrack = newVideoStream.getVideoTracks()[0];
-                        localStream.current.removeTrack(videoTrack);
-                        localStream.current.addTrack(newVideoTrack);
-                        if (localVideoRef.current) localVideoRef.current.srcObject = localStream.current;
-                        
-                        // Actualizar tracks en todas las conexiones existentes
-                        if (peer.current) {
-                            const connections = peer.current.connections;
-                            Object.values(connections).forEach(connArray => {
-                                connArray.forEach(conn => {
-                                    if (conn.peerConnection) {
-                                        const senders = conn.peerConnection.getSenders();
-                                        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-                                        if (videoSender) videoSender.replaceTrack(newVideoTrack);
-                                    }
-                                });
-                            });
-                        }
-                    } catch (e) { console.error("Error al girar cámara:", e); alert("Error al cambiar cámara"); }
-                }
-            };
-
-            useEffect(() => {
-                if (!joined) return;
-                
-                // Conectar MQTT para tally
-                const mq = mqtt.connect(MQTT_BROKER);
-                mqttClient.current = mq;
-                mq.on('connect', () => {
-                    console.log("MQTT Conectado en Invitado");
-                    mq.subscribe(`sc_tally/${roomName.toUpperCase()}`);
-                });
-                mq.on('message', (t, msg) => {
-                    try {
-                        const data = JSON.parse(msg.toString());
-                        setTally(data.state);
-                    } catch(e) {}
-                });
-                
-                const init = async () => {
-                    try {
-                        const resolutions = { '360': [640,360], '720': [1280,720], '1080': [1920,1080] };
-                        const stream = await navigator.mediaDevices.getUserMedia({ 
-                            video: { width: resolutions[quality][0], height: resolutions[quality][1], facingMode: facingMode }, 
-                            audio: { echoCancellation: true, noiseSuppression: true } 
-                        });
-                        localStream.current = stream;
-                        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-                        
-                        const baseId = roomName.toUpperCase();
-                        const guestId = `sc_guest_${baseId}`;
-                        peer.current = new Peer(guestId, PEER_CONFIG);
-                        
-                        peer.current.on('open', (id) => {
-                            console.log('Guest conectado con ID:', id);
-                            setConnectionStatus('Conectado, enviando señal...');
-                            
-                            // Llamar al director
-                            const directorCall = peer.current.call(`sc_dir_${baseId}`, stream);
-                            directorCall.on('stream', (remoteStream) => {
-                                console.log('Stream de retorno del director recibido');
-                                if (returnMediaRef.current) {
-                                    returnMediaRef.current.srcObject = remoteStream;
-                                    setReceivingVideo(remoteStream.getVideoTracks().length > 0);
-                                }
-                            });
-                            
-                            // Llamar al LiveU
-                            const liveuCall = peer.current.call(`sc_liveu_${baseId}`, stream);
-                            liveuCall.on('error', (err) => {
-                                console.log('LiveU no disponible (normal si no está abierto):', err);
-                            });
-                            
-                            setConnectionStatus('Transmitiendo en vivo');
-                        });
-                        
-                        peer.current.on('call', (call) => {
-                            console.log('Recibiendo llamada de:', call.peer);
-                            // Responder con nuestro stream
-                            call.answer(stream);
-                            
-                            call.on('stream', (remoteStream) => {
-                                console.log('Stream recibido de:', call.peer);
-                                if (call.peer.includes('dir')) {
-                                    if (returnMediaRef.current) {
-                                        returnMediaRef.current.srcObject = remoteStream;
-                                        setReceivingVideo(true);
-                                    }
-                                }
-                            });
-                        });
-                        
-                        peer.current.on('error', (err) => {
-                            console.error('Peer error:', err);
-                            setConnectionStatus(`Error: ${err.type}`);
-                        });
-                        
-                    } catch (e) { 
-                        console.error("Error al iniciar:", e);
-                        alert("Error al acceder a cámara/micrófono. Por favor verifica los permisos."); 
-                    }
-                };
-                init();
-                
-                return () => { 
-                    if (peer.current) peer.current.destroy(); 
-                    if (mq) mq.end();
-                    if (localStream.current) {
-                        localStream.current.getTracks().forEach(t => t.stop());
-                    }
-                };
-            }, [joined, quality]);
-
-            const toggleMic = () => { 
-                if (localStream.current) { 
-                    const audioTrack = localStream.current.getAudioTracks()[0];
-                    if (audioTrack) {
-                        audioTrack.enabled = !audioTrack.enabled;
-                        setMicMuted(!audioTrack.enabled);
-                    }
-                } 
-            };
-            
-            const toggleCam = () => { 
-                if (localStream.current) { 
-                    const videoTrack = localStream.current.getVideoTracks()[0];
-                    if (videoTrack) {
-                        videoTrack.enabled = !videoTrack.enabled;
-                        setCamOff(!videoTrack.enabled);
-                    }
-                } 
-            };
-
-            if (!joined) return (
-                <div className="lobby-container">
-                    <div className="glass-box">
-                        <h2 className="text-2xl font-black mb-4 text-white uppercase tracking-widest">SALA: {roomName}</h2>
-                        <p className="text-gray-400 text-sm mb-4">Conéctate como invitado</p>
-                        <select className="quality-select" value={quality} onChange={e => setQuality(e.target.value)}>
-                            <option value="360">360p (BAJA - Recomendado para móvil)</option>
-                            <option value="720">720p (MEDIA)</option>
-                            <option value="1080">1080p (ALTA - Requiere buena conexión)</option>
-                        </select>
-                        <button className="btn btn-blue w-full mt-2" onClick={() => setJoined(true)}>🎥 ENTRAR A SALA</button>
-                    </div>
-                </div>
-            );
-
-            return (
-                <div className={`guest-layout tally-${tally}`}>
-                    <div className="guest-tally-border"></div>
-                    <div className="big-tally-text">{tally === 'live' ? '🔴 AL AIRE' : tally === 'prev' ? '🟢 PREVENIDO' : ''}</div>
-                    <div className={`return-pip ${receivingVideo ? 'active' : ''}`}>
-                        <video ref={returnMediaRef} autoPlay playsInline muted></video>
-                        <div className="pip-label">📺 RETORNO DIRECTOR</div>
-                    </div>
-                    <video ref={localVideoRef} className="guest-video" style={{ transform: facingMode === 'user' ? 'scaleX(-1)' : 'none', objectFit: 'cover' }} muted autoPlay playsInline></video>
-                    <div className="guest-overlay">
-                        <div className="text-[10px] font-bold text-gray-400 uppercase mr-2">{roomName}</div>
-                        <div className={`mic-btn ${micMuted?'off':'on'}`} onClick={toggleMic}>{micMuted ? '🔇' : '🎤'}</div>
-                        <div className={`mic-btn ${camOff?'off':'on'}`} onClick={toggleCam}>{camOff ? '🚫' : '📷'}</div>
-                        <div className="mic-btn" style={{ background: '#3b82f6' }} onClick={switchCamera}>🔄</div>
-                        <div className="text-[10px] text-gray-400 ml-2">{connectionStatus}</div>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- APP ROUTER ---
-        const App = () => {
-            const [mode, setMode] = useState(null); 
-            const [roomName, setRoomName] = useState('');
-            
-            useEffect(() => {
-                const params = new URLSearchParams(window.location.search);
-                let m = params.get('mode'); 
-                let r = params.get('room');
-                if (m && r) { 
-                    setRoomName(r); 
-                    setMode(m); 
-                    if (m === 'liveu') document.body.classList.add('liveu-mode');
-                } else {
-                    const randomRoom = Math.random().toString(36).substring(2, 8).toUpperCase();
-                    setRoomName(randomRoom);
-                }
-            }, []);
-            
-            if (mode === 'director') return <ReceiverView roomName={roomName} isLiveuMode={false} />;
-            if (mode === 'liveu') return <ReceiverView roomName={roomName} isLiveuMode={true} />;
-            if (mode === 'guest') return <GuestView roomName={roomName} />;
-            
-            return (
-                <div className="lobby-container">
-                    <div className="glass-box">
-                        <h1 className="text-3xl font-black mb-6 uppercase text-blue-500 tracking-tighter">StreamCall PRO</h1>
-                        <p className="text-gray-400 mb-4">Sala generada automáticamente</p>
-                        <input 
-                            value={roomName} 
-                            onChange={(e) => setRoomName(e.target.value.toUpperCase())} 
-                            placeholder="NOMBRE SALA" 
-                            className="text-center"
-                        />
-                        <button className="btn btn-blue w-full" onClick={() => window.location.href=`?mode=director&room=${roomName}`}>
-                            🎬 ABRIR PANEL DIRECTOR
-                        </button>
-                        <div className="mt-4 text-xs text-gray-500">
-                            Luego comparte el link INVITADO con tu participante
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-        
-        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+            });
+        });
     </script>
+
 </body>
 </html>
