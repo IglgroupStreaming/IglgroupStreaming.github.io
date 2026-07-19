@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iglgroup TV - Reproductor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .player-container {
+            max-width: 900px;
+            width: 100%;
+            background: #141414;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+            border: 1px solid #2a2a2a;
+        }
+
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 0 5px;
+        }
+
+        .player-header h2 {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .player-header h2 span {
+            color: #ff0000;
+        }
+
+        .live-badge {
+            background: #ff0000;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            animation: pulse 1.5s ease-in-out infinite;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            padding-top: 56.25%;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .video-wrapper video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            border-radius: 12px;
+        }
+
+        .watermark-logo {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 10;
+            max-width: 100px;
+            max-height: 50px;
+            width: auto;
+            height: auto;
+            opacity: 0.9;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 8px;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            object-fit: contain;
+        }
+
+        @media (max-width: 600px) {
+            .watermark-logo {
+                top: 8px;
+                right: 8px;
+                max-width: 70px;
+                max-height: 35px;
+                padding: 3px 5px;
+            }
+        }
+
+        .no-signal-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+            object-fit: cover;
+            transition: opacity 0.5s ease;
+            pointer-events: none;
+            border-radius: 12px;
+            background: #000;
+        }
+
+        .no-signal-image.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .screen-share-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 15;
+            background: rgba(255, 0, 0, 0.85);
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            pointer-events: none;
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .screen-share-indicator.active {
+            display: flex;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .screen-share-indicator .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+            animation: pulse 0.8s ease-in-out infinite;
+        }
+
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding: 0 5px;
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        .player-info .status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #00ff00;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-dot.offline {
+            background: #ff4444;
+            animation: none;
+        }
+
+        .status-dot.loading {
+            background: #ffaa00;
+            animation: pulse 0.8s ease-in-out infinite;
+        }
+
+        .status-dot.switching {
+            background: #00aaff;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        .player-info .stats span {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .custom-controls {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .custom-controls button {
+            background: #2a2a2a;
+            color: #fff;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            height: 32px;
+        }
+
+        .custom-controls button:hover {
+            background: #3a3a3a;
+            transform: scale(1.03);
+        }
+
+        .custom-controls button.primary {
+            background: #cc0000;
+        }
+
+        .custom-controls button.primary:hover {
+            background: #ff0000;
+        }
+
+        .custom-controls button.success {
+            background: #00aa44;
+        }
+
+        .custom-controls button.success:hover {
+            background: #00cc55;
+        }
+
+        .custom-controls button.danger {
+            background: #cc4400;
+        }
+
+        .custom-controls button.danger:hover {
+            background: #ff5500;
+        }
+
+        .custom-controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .custom-controls button .icon {
+            font-size: 14px;
+        }
+
+        .compatibility-msg {
+            color: #ffaa00;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 8px;
+            padding: 4px 10px;
+            background: rgba(255, 170, 0, 0.1);
+            border-radius: 6px;
+            border: 1px solid rgba(255, 170, 0, 0.2);
+            display: none;
+        }
+
+        .compatibility-msg.visible {
+            display: block;
+        }
+
+        .source-indicator {
+            color: #888;
+            font-size: 11px;
+            text-align: center;
+            margin-top: 6px;
+            padding: 4px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .source-indicator .active-source {
+            color: #00ff88;
+            font-weight: 600;
+        }
+
+        .source-indicator .active-source.secondary {
+            color: #ffaa00;
+        }
+
+        @media (max-width: 600px) {
+            .player-container {
+                padding: 12px;
+            }
+
+            .player-header h2 {
+                font-size: 14px;
+            }
+
+            .player-info {
+                flex-direction: column;
+                gap: 4px;
+                align-items: flex-start;
+                font-size: 11px;
+            }
+
+            .custom-controls {
+                gap: 6px;
+            }
+
+            .custom-controls button {
+                padding: 5px 10px;
+                font-size: 11px;
+                height: 28px;
+            }
+
+            .custom-controls button .icon {
+                font-size: 12px;
+            }
+
+            .screen-share-indicator {
+                font-size: 10px;
+                padding: 4px 12px;
+                bottom: 12px;
+            }
+
+            .compatibility-msg {
+                font-size: 10px;
+            }
+
+            .source-indicator {
+                font-size: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+
+        <div class="player-header">
+            <h2>📺 <span>Iglgroup</span> TV</h2>
+            <span class="live-badge">🔴 En Vivo</span>
+        </div>
+
+        <div class="video-wrapper">
+            <video id="videoPlayer" playsinline></video>
+
+            <img id="noSignalImage" 
+                 src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSbL9UC1CEoJleMt6WPqNaZXPm7lmGEAH4fFfn3ysolND1wDUHqffPl8zs&s=10" 
+                 alt="Sin Señal de Origen" 
+                 class="no-signal-image hidden"
+                 onerror="this.style.display='none';">
+
+            <img src="https://www.liveu.tv/wp-content/uploads/2021/06/LiveU_Logo_On_Whtite.png" 
+                 alt="LiveU" 
+                 class="watermark-logo"
+                 onerror="this.style.display='none';">
+
+            <div id="screenIndicator" class="screen-share-indicator">
+                <span class="dot"></span>
+                📺 Compartiendo pantalla
+            </div>
+        </div>
+
+        <div class="player-info">
+            <div class="status">
+                <span class="status-dot loading" id="statusDot"></span>
+                <span id="statusText">Conectando...</span>
+            </div>
+            <div class="stats">
+                👁️ <span id="viewerCount">0</span>
+            </div>
+        </div>
+
+        <div class="source-indicator">
+            Fuente: <span id="sourceLabel" class="active-source">Principal</span>
+        </div>
+
+        <div class="custom-controls">
+            <button id="playBtn" class="primary">
+                <span class="icon">▶</span> Reproducir
+            </button>
+            <button id="pauseBtn">
+                <span class="icon">⏸</span> Pausar
+            </button>
+            <button id="volumeUpBtn">
+                <span class="icon">🔊</span> Vol+
+            </button>
+            <button id="volumeDownBtn">
+                <span class="icon">🔉</span> Vol-
+            </button>
+            <button id="fullscreenBtn">
+                <span class="icon">⛶</span> Pantalla
+            </button>
+            <button id="shareScreenBtn" class="success">
+                <span class="icon">🖥️</span> Compartir
+            </button>
+            <button id="stopShareBtn" class="danger" style="display:none;">
+                <span class="icon">⛔</span> Detener
+            </button>
+        </div>
+
+        <div id="compatibilityMsg" class="compatibility-msg">
+            ⚠️ Tu navegador no soporta compartir pantalla. Usa Chrome, Edge o Firefox.
+        </div>
+
+    </div>
+
+    <script>
+        // =============================================
+        //  REPRODUCTOR HLS - PRIORIDAD ABSOLUTA
+        // =============================================
+        
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/hls.js@0.14.17/dist/hls.min.js';
+        document.head.appendChild(script);
+
+        const video = document.getElementById('videoPlayer');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const noSignalImage = document.getElementById('noSignalImage');
+        const screenIndicator = document.getElementById('screenIndicator');
+        const playBtn = document.getElementById('playBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const shareBtn = document.getElementById('shareScreenBtn');
+        const stopShareBtn = document.getElementById('stopShareBtn');
+        const compatMsg = document.getElementById('compatibilityMsg');
+        const sourceLabel = document.getElementById('sourceLabel');
+
+        let hls = null;
+        let isReady = false;
+        let screenStream = null;
+        let isSharing = false;
+        let isSwitching = false;
+        let checkInterval = null;
+        let isOnSecondary = false;
+
+        // ===== FUENTES DE VIDEO =====
+        const PRIMARY_URL = 'https://lbgo.bozztv.com/ssh101/ssh101/myevent2525/playlist.m3u8';
+        const SECONDARY_URL = 'https://lbgo.bozztv.com/ssh101/ssh101/sradiolatina/playlist.m3u8';
+
+        const SOURCES = [
+            { url: PRIMARY_URL, label: 'Principal' },
+            { url: SECONDARY_URL, label: 'Secundaria' }
+        ];
+
+        // =============================================
+        //  FUNCIONES DE ESTADO
+        // =============================================
+
+        function setStatus(text, type = 'loading') {
+            statusText.textContent = text;
+            statusDot.className = `status-dot ${type}`;
+        }
+
+        function showNoSignal() {
+            noSignalImage.classList.remove('hidden');
+            setStatus('📡 Sin Señal', 'offline');
+        }
+
+        function showSignal() {
+            noSignalImage.classList.add('hidden');
+            setStatus(isSharing ? '🖥️ Compartiendo pantalla' : '🔴 En Vivo', '');
+        }
+
+        function showLoading() {
+            noSignalImage.classList.remove('hidden');
+            setStatus('⏳ Cargando...', 'loading');
+        }
+
+        function showSwitching() {
+            noSignalImage.classList.remove('hidden');
+            setStatus('🔄 Cambiando...', 'switching');
+        }
+
+        function updateSourceLabel(index) {
+            sourceLabel.textContent = SOURCES[index].label;
+            sourceLabel.className = index === 0 ? 'active-source' : 'active-source secondary';
+        }
+
+        // =============================================
+        //  VERIFICAR DISPONIBILIDAD DE PRINCIPAL
+        // =============================================
+
+        function checkPrimaryAvailability() {
+            if (isSharing || isSwitching) return;
+
+            console.log('🔍 Verificando fuente Principal...');
+
+            // Usar fetch para probar la conexión
+            fetch(PRIMARY_URL, {
+                method: 'HEAD',
+                mode: 'no-cors',
+                cache: 'no-cache'
+            })
+            .then(response => {
+                // Si estamos en secundaria y la principal está disponible
+                if (isOnSecondary) {
+                    console.log('✅ Principal disponible! Reconectando...');
+                    switchToPrimary();
+                }
+            })
+            .catch(() => {
+                console.log('❌ Principal no disponible');
+            });
+        }
+
+        // =============================================
+        //  INICIALIZAR REPRODUCTOR CON UNA FUENTE
+        // =============================================
+
+        function initPlayerWithSource(url, index) {
+            if (isSharing) return;
+            
+            isSwitching = true;
+            showSwitching();
+            updateSourceLabel(index);
+            
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+
+            video.removeAttribute('src');
+            video.load();
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    maxLoadingDelay: 4,
+                    maxBufferSize: 30,
+                    maxBufferLength: 30,
+                });
+
+                hls.loadSource(url);
+                hls.attachMedia(video);
+
+                let sourceLoaded = false;
+
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    isReady = true;
+                    sourceLoaded = true;
+                    showLoading();
+                    console.log(`✅ ${SOURCES[index].label} listo`);
+                    video.play().catch(() => {});
+                });
+
+                hls.on(Hls.Events.LEVEL_LOADED, () => {
+                    if (!sourceLoaded) sourceLoaded = true;
+                    showSignal();
+                    isSwitching = false;
+                    
+                    if (index === 1) {
+                        isOnSecondary = true;
+                        // Iniciar verificación periódica
+                        if (checkInterval) clearInterval(checkInterval);
+                        checkInterval = setInterval(checkPrimaryAvailability, 5000);
+                        console.log('📡 Monitoreando Principal cada 5s');
+                    } else {
+                        isOnSecondary = false;
+                        if (checkInterval) {
+                            clearInterval(checkInterval);
+                            checkInterval = null;
+                        }
+                    }
+                    console.log(`✅ Fuente ${SOURCES[index].label} activa`);
+                });
+
+                hls.on(Hls.Events.FRAG_BUFFERED, () => {
+                    if (!sourceLoaded) sourceLoaded = true;
+                    showSignal();
+                    isSwitching = false;
+                });
+
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        console.error(`❌ Error fatal en ${SOURCES[index].label}`);
+                        showNoSignal();
+                        isSwitching = false;
+                        
+                        setTimeout(() => {
+                            if (!isSharing && !isSwitching) {
+                                if (index === 0) {
+                                    switchToSecondary();
+                                } else {
+                                    switchToPrimary();
+                                }
+                            }
+                        }, 3000);
+                    }
+                });
+
+                setTimeout(() => {
+                    if (!sourceLoaded && !isSwitching && !isSharing) {
+                        console.warn(`⏱️ Timeout ${SOURCES[index].label}`);
+                        if (index === 0) {
+                            switchToSecondary();
+                        } else {
+                            switchToPrimary();
+                        }
+                    }
+                }, 10000);
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => {
+                    isReady = true;
+                    showSignal();
+                    isSwitching = false;
+                    if (index === 1) {
+                        isOnSecondary = true;
+                        if (checkInterval) clearInterval(checkInterval);
+                        checkInterval = setInterval(checkPrimaryAvailability, 5000);
+                    } else {
+                        isOnSecondary = false;
+                        if (checkInterval) {
+                            clearInterval(checkInterval);
+                            checkInterval = null;
+                        }
+                    }
+                    video.play().catch(() => {});
+                });
+            } else {
+                showNoSignal();
+                setStatus('❌ Navegador no compatible', 'offline');
+                isSwitching = false;
+            }
+        }
+
+        // =============================================
+        //  CONMUTACIÓN DE FUENTES
+        // =============================================
+
+        function switchToPrimary() {
+            if (isSharing || isSwitching) return;
+            if (!isOnSecondary) {
+                console.log('ℹ️ Ya en Principal');
+                return;
+            }
+            
+            console.log('🔄 Conmutando a Principal');
+            if (checkInterval) {
+                clearInterval(checkInterval);
+                checkInterval = null;
+            }
+            isOnSecondary = false;
+            initPlayerWithSource(PRIMARY_URL, 0);
+        }
+
+        function switchToSecondary() {
+            if (isSharing || isSwitching) return;
+            if (isOnSecondary) {
+                console.log('ℹ️ Ya en Secundaria');
+                return;
+            }
+            
+            console.log('🔄 Conmutando a Secundaria (fallback)');
+            isOnSecondary = true;
+            initPlayerWithSource(SECONDARY_URL, 1);
+        }
+
+        // =============================================
+        //  INICIAR REPRODUCTOR
+        // =============================================
+
+        function initPlayer() {
+            isOnSecondary = false;
+            updateSourceLabel(0);
+            initPlayerWithSource(PRIMARY_URL, 0);
+        }
+
+        // =============================================
+        //  COMPARTIR PANTALLA
+        // =============================================
+
+        function isScreenShareSupported() {
+            return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+        }
+
+        if (!isScreenShareSupported()) {
+            shareBtn.style.display = 'none';
+            compatMsg.classList.add('visible');
+        }
+
+        async function startScreenShare() {
+            if (!isScreenShareSupported()) {
+                alert('Tu navegador no soporta compartir pantalla.');
+                return;
+            }
+
+            try {
+                screenStream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { cursor: "always" },
+                    audio: { echoCancellation: true, noiseSuppression: true }
+                });
+
+                video.srcObject = screenStream;
+                video.muted = true;
+
+                isSharing = true;
+                shareBtn.style.display = 'none';
+                stopShareBtn.style.display = 'flex';
+                screenIndicator.classList.add('active');
+                showSignal();
+
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                    checkInterval = null;
+                }
+
+                screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+                    stopScreenShare();
+                });
+
+            } catch (error) {
+                console.error('Error al compartir pantalla:', error);
+                if (error.name === 'AbortError') {
+                    console.log('Usuario canceló');
+                } else {
+                    alert('Error al compartir pantalla: ' + error.message);
+                }
+                if (screenStream) {
+                    screenStream.getTracks().forEach(track => track.stop());
+                    screenStream = null;
+                }
+            }
+        }
+
+        function stopScreenShare() {
+            if (screenStream) {
+                screenStream.getTracks().forEach(track => track.stop());
+                screenStream = null;
+            }
+
+            video.srcObject = null;
+            isSharing = false;
+            shareBtn.style.display = 'flex';
+            stopShareBtn.style.display = 'none';
+            screenIndicator.classList.remove('active');
+            
+            if (isOnSecondary) {
+                initPlayerWithSource(SECONDARY_URL, 1);
+            } else {
+                initPlayerWithSource(PRIMARY_URL, 0);
+            }
+        }
+
+        // =============================================
+        //  CONTROLES
+        // =============================================
+
+        playBtn.addEventListener('click', () => {
+            if (isReady || isSharing) {
+                video.play().catch(() => {});
+            }
+        });
+
+        pauseBtn.addEventListener('click', () => {
+            video.pause();
+        });
+
+        document.getElementById('volumeUpBtn').addEventListener('click', () => {
+            video.volume = Math.min(1, video.volume + 0.1);
+        });
+
+        document.getElementById('volumeDownBtn').addEventListener('click', () => {
+            video.volume = Math.max(0, video.volume - 0.1);
+        });
+
+        document.getElementById('fullscreenBtn').addEventListener('click', () => {
+            const wrapper = document.querySelector('.video-wrapper');
+            if (wrapper.requestFullscreen) wrapper.requestFullscreen();
+            else if (wrapper.webkitRequestFullscreen) wrapper.webkitRequestFullscreen();
+        });
+
+        shareBtn.addEventListener('click', startScreenShare);
+        stopShareBtn.addEventListener('click', stopScreenShare);
+
+        // =============================================
+        //  MONITOREO DE SEÑAL
+        // =============================================
+
+        video.addEventListener('playing', () => {
+            if (!isSharing) {
+                showSignal();
+                isSwitching = false;
+            }
+        });
+
+        video.addEventListener('stalled', () => {
+            if (!isSharing && !isSwitching) {
+                showNoSignal();
+                setTimeout(() => {
+                    if (!isSharing && !isSwitching) {
+                        if (isOnSecondary) {
+                            switchToPrimary();
+                        } else {
+                            switchToSecondary();
+                        }
+                    }
+                }, 3000);
+            }
+        });
+
+        video.addEventListener('error', () => {
+            if (!isSharing && !isSwitching) {
+                showNoSignal();
+                setTimeout(() => {
+                    if (!isSharing && !isSwitching) {
+                        if (isOnSecondary) {
+                            switchToPrimary();
+                        } else {
+                            switchToSecondary();
+                        }
+                    }
+                }, 3000);
+            }
+        });
+
+        // =============================================
+        //  ESPECTADORES
+        // =============================================
+
+        let viewers = Math.floor(Math.random() * 15) + 5;
+        document.getElementById('viewerCount').textContent = viewers;
+
+        setInterval(() => {
+            const change = Math.floor(Math.random() * 5) - 2;
+            viewers = Math.max(0, viewers + change);
+            document.getElementById('viewerCount').textContent = viewers;
+        }, 8000);
+
+        // =============================================
+        //  INICIAR
+        // =============================================
+
+        script.onload = initPlayer;
+        if (typeof Hls !== 'undefined') {
+            initPlayer();
+        }
+
+        console.log('📺 Iglgroup TV - Prioridad absoluta');
+        console.log('📡 Principal: ' + PRIMARY_URL);
+        console.log('🔄 Verificación cada 5 segundos');
+    </script>
+</body>
+</html>
